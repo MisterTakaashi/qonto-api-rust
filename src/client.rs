@@ -2,11 +2,15 @@ const DEFAULT_API_URL: &'static str = "https://thirdparty.qonto.com/";
 const DEFAULT_OAUTH_URL: &'static str = "https://oauth.qonto.com/oauth2/";
 
 use curl::{Error, easy::Easy};
+use crate::http::HttpResult;
 
 pub struct Client {
     pub base_url: String,
     pub oauth_url: String,
+}
 
+trait QontoClient {
+    fn get(&self) -> Result<HttpResult, Error>;
 }
 
 impl Default for Client {
@@ -18,19 +22,23 @@ impl Default for Client {
     }
 }
 
-impl Client {
-    pub fn get(&self) -> Result<u32, Error> {
+impl QontoClient for Client {
+    fn get(&self) -> Result<HttpResult, Error> {
         let mut easy = Easy::new();
         easy.url(&self.base_url[..]).unwrap();
-        easy.perform().unwrap();
+        let result = easy.perform();
 
-        easy.response_code()
+        if result.is_ok() {
+            Ok(HttpResult { status_code: easy.response_code().unwrap() })
+        } else {
+            Err(result.unwrap_err())
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{Client, DEFAULT_API_URL, DEFAULT_OAUTH_URL};
+    use crate::client::{Client, QontoClient, DEFAULT_API_URL, DEFAULT_OAUTH_URL};
 
     #[test]
     pub fn build_client() {
@@ -52,10 +60,10 @@ mod tests {
     }
 
     #[test]
-    pub fn make_get_request() {
+    pub fn make_get_not_found_request() {
         let client = Client::default();
 
         let result = client.get();
-        assert_eq!(result.unwrap(), 404);
+        assert_eq!(result.unwrap().status_code, 404);
     }
 }
