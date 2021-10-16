@@ -1,15 +1,18 @@
 const DEFAULT_API_URL: &'static str = "https://thirdparty.qonto.com/";
 const DEFAULT_OAUTH_URL: &'static str = "https://oauth.qonto.com/oauth2/";
 
-use curl::{Error, easy::Easy};
 use crate::http::HttpResult;
+use curl::{easy::Easy, Error};
+#[cfg(test)]
+use mockall::{automock, predicate::*};
 
 pub struct Client {
     pub base_url: String,
     pub oauth_url: String,
 }
 
-trait QontoClient {
+#[cfg_attr(test, automock)]
+pub trait QontoClient {
     fn get(&self) -> Result<HttpResult, Error>;
 }
 
@@ -29,7 +32,9 @@ impl QontoClient for Client {
         let result = easy.perform();
 
         if result.is_ok() {
-            Ok(HttpResult { status_code: easy.response_code().unwrap() })
+            Ok(HttpResult {
+                status_code: easy.response_code().unwrap(),
+            })
         } else {
             Err(result.unwrap_err())
         }
@@ -38,7 +43,10 @@ impl QontoClient for Client {
 
 #[cfg(test)]
 mod tests {
-    use crate::client::{Client, QontoClient, DEFAULT_API_URL, DEFAULT_OAUTH_URL};
+    use crate::{
+        client::{Client, MockQontoClient, QontoClient, DEFAULT_API_URL, DEFAULT_OAUTH_URL},
+        http::HttpResult,
+    };
 
     #[test]
     pub fn build_client() {
@@ -61,7 +69,10 @@ mod tests {
 
     #[test]
     pub fn make_get_not_found_request() {
-        let client = Client::default();
+        let mut client = MockQontoClient::new();
+        client
+            .expect_get()
+            .return_const(Ok(HttpResult { status_code: 404 }));
 
         let result = client.get();
         assert_eq!(result.unwrap().status_code, 404);

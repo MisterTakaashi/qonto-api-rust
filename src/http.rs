@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct HttpResult {
-    pub status_code: u32
+    pub status_code: u32,
 }
